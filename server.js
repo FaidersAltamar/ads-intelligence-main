@@ -4,7 +4,8 @@
  */
 
 const express = require('express');
-const puppeteer = require('puppeteer');
+const puppeteer = require('puppeteer-core');
+const chromium = require('@sparticuz/chromium');
 const cors = require('cors');
 const path = require('path');
 
@@ -104,19 +105,11 @@ async function scrapeFacebookAds(keyword, maxResults) {
     console.log('[PUPPETEER] Iniciando navegador headless...');
     
     const browser = await puppeteer.launch({
-        headless: true,
-        args: [
-            '--no-sandbox',
-            '--disable-setuid-sandbox',
-            '--disable-dev-shm-usage',
-            '--disable-accelerated-2d-canvas',
-            '--no-first-run',
-            '--no-zygote',
-            '--single-process',
-            '--disable-gpu',
-            '--disable-blink-features=AutomationControlled'
-        ],
-        executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || puppeteer.executablePath()
+        headless: chromium.headless,
+        args: chromium.args,
+        defaultViewport: chromium.defaultViewport,
+        executablePath: await chromium.executablePath(),
+        ignoreHTTPSErrors: true
     });
 
     const page = await browser.newPage();
