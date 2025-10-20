@@ -190,11 +190,12 @@ async function scrapeFacebookAds(keyword, maxResults) {
             await new Promise(resolve => setTimeout(resolve, 2000));
         }
 
-        // Obtener total reportado
+        // Obtener total reportado (español e inglés)
         const totalReportado = await page.evaluate(() => {
             const texto = document.body.innerText;
-            const match = texto.match(/(\d+)\s+resultados/);
-            return match ? match[1] : '0';
+            const matchEs = texto.match(/(\d+)\s+resultados/);
+            const matchEn = texto.match(/(\d+)\s+results/);
+            return (matchEs ? matchEs[1] : (matchEn ? matchEn[1] : '0'));
         });
 
         console.log(`[INFO] Facebook reporta ${totalReportado} anuncios`);
@@ -211,13 +212,19 @@ async function scrapeFacebookAds(keyword, maxResults) {
             for (const div of allDivs) {
                 const texto = div.innerText || '';
                 
-                // Filtrar: debe tener ID de biblioteca y botón "Ver detalles"
-                if (texto.includes('Ver detalles del anuncio') && 
-                    texto.includes('Identificador de la biblioteca') &&
-                    texto.length > 100 && texto.length < 2500) {
+                // Filtrar: debe tener ID de biblioteca y botón "Ver detalles" (español o inglés)
+                const hasDetalles = texto.includes('Ver detalles del anuncio') || texto.includes('See ad details');
+                const hasBiblioteca = texto.includes('Identificador de la biblioteca') || 
+                                      texto.includes('Ad Library ID') || 
+                                      texto.includes('Library ID');
+                
+                if (hasDetalles && hasBiblioteca && texto.length > 100 && texto.length < 2500) {
                     
-                    // Extraer ID único
-                    const idMatch = texto.match(/Identificador de la biblioteca[:\s]+(\d{15,})/);
+                    // Extraer ID único (español o inglés)
+                    const idMatchEs = texto.match(/Identificador de la biblioteca[:\s]+(\d{15,})/);
+                    const idMatchEn = texto.match(/(?:Ad Library ID|Library ID)[:\s]+(\d{15,})/);
+                    const idMatch = idMatchEs || idMatchEn;
+                    
                     if (!idMatch) continue;
                     
                     const id = idMatch[1];
@@ -226,9 +233,10 @@ async function scrapeFacebookAds(keyword, maxResults) {
                     if (idsVistos.has(id)) continue;
                     idsVistos.add(id);
                     
-                    // Extraer fecha
-                    const fechaMatch = texto.match(/En circulaci[oó]n desde el (\d+ \w+ \d+)/);
-                    const fecha = fechaMatch ? fechaMatch[1] : 'N/A';
+                    // Extraer fecha (español o inglés)
+                    const fechaMatchEs = texto.match(/En circulaci[oó]n desde el (\d+ \w+ \d+)/);
+                    const fechaMatchEn = texto.match(/Started running on (.+\d{4})/);
+                    const fecha = fechaMatchEs ? fechaMatchEs[1] : (fechaMatchEn ? fechaMatchEn[1] : 'N/A');
                     
                     // Extraer nombre de página y logo
                     const lineas = texto.split('\n').filter(l => l.trim().length > 0);
@@ -248,9 +256,13 @@ async function scrapeFacebookAds(keyword, maxResults) {
                             if (linea.length > 5 && 
                                 linea.length < 60 && 
                                 !linea.includes('Activo') &&
+                                !linea.includes('Active') &&
                                 !linea.includes('Inactivo') &&
+                                !linea.includes('Inactive') &&
                                 !linea.includes('Identificador') &&
-                                !linea.includes('Ver detalles')) {
+                                !linea.includes('Library ID') &&
+                                !linea.includes('Ver detalles') &&
+                                !linea.includes('See ad details')) {
                                 pagina = linea;
                                 break;
                             }
@@ -262,10 +274,15 @@ async function scrapeFacebookAds(keyword, maxResults) {
                     for (const linea of lineas) {
                         if (linea.length > 30 && 
                             !linea.includes('Identificador') &&
+                            !linea.includes('Library ID') &&
                             !linea.includes('Ver detalles') &&
+                            !linea.includes('See ad details') &&
                             !linea.includes('Plataformas') &&
+                            !linea.includes('Platforms') &&
                             !linea.includes('circulaci') &&
-                            !linea.includes('Filtros')) {
+                            !linea.includes('running on') &&
+                            !linea.includes('Filtros') &&
+                            !linea.includes('Filters')) {
                             textoAnuncio = linea;
                             break;
                         }
