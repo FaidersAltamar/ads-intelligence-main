@@ -26,8 +26,34 @@ app.get('/health', (req, res) => {
     res.json({ 
         status: 'ok', 
         timestamp: new Date().toISOString(),
-        service: 'Facebook Ads Scraper API' 
+        service: 'Facebook Ads Scraper API',
+        node_version: process.version,
+        memory: {
+            heapUsed: Math.round(process.memoryUsage().heapUsed / 1024 / 1024) + 'MB',
+            heapTotal: Math.round(process.memoryUsage().heapTotal / 1024 / 1024) + 'MB'
+        }
     });
+});
+
+// Diagnóstico de Chromium
+app.get('/debug/chromium', async (req, res) => {
+    try {
+        const execPath = await chromium.executablePath();
+        res.json({
+            status: 'ok',
+            chromiumPath: execPath,
+            chromiumArgs: chromium.args.length + ' argumentos',
+            nodeVersion: process.version,
+            platform: process.platform,
+            arch: process.arch
+        });
+    } catch (error) {
+        res.status(500).json({
+            status: 'error',
+            error: error.message,
+            stack: error.stack
+        });
+    }
 });
 
 // Ruta principal - Servir HTML
@@ -77,7 +103,7 @@ app.post('/api/scrape', async (req, res) => {
         });
     }
 
-    console.log(`[SCRAPING] Palabra clave: ${keyword}, Max: ${maxResults}`);
+    console.log(`[SCRAPING POST] Palabra clave: ${keyword}, Max: ${maxResults}`);
 
     try {
         const anuncios = await scrapeFacebookAds(keyword, maxResults);
@@ -90,10 +116,12 @@ app.post('/api/scrape', async (req, res) => {
             anuncios: anuncios
         });
     } catch (error) {
-        console.error('[ERROR]', error);
+        console.error('[ERROR COMPLETO]', error.message);
+        console.error('[ERROR STACK]', error.stack);
         res.status(500).json({ 
             success: false,
-            error: error.message 
+            error: error.message,
+            details: process.env.NODE_ENV === 'production' ? 'Ver logs del servidor' : error.stack
         });
     }
 });
@@ -104,12 +132,27 @@ app.post('/api/scrape', async (req, res) => {
 async function scrapeFacebookAds(keyword, maxResults) {
     console.log('[PUPPETEER] Iniciando navegador headless...');
     
+    // Configuración optimizada para Render.com
+    const isProduction = process.env.NODE_ENV === 'production';
+    
     const browser = await puppeteer.launch({
         headless: chromium.headless,
-        args: chromium.args,
+        args: [
+            ...chromium.args,
+            '--disable-gpu',
+            '--no-sandbox',
+            '--disable-setuid-sandbox',
+            '--disable-dev-shm-usage',
+            '--disable-accelerated-2d-canvas',
+            '--no-first-run',
+            '--no-zygote',
+            '--single-process',
+            '--disable-web-security'
+        ],
         defaultViewport: chromium.defaultViewport,
         executablePath: await chromium.executablePath(),
-        ignoreHTTPSErrors: true
+        ignoreHTTPSErrors: true,
+        timeout: 60000
     });
 
     const page = await browser.newPage();
