@@ -56,6 +56,94 @@ app.get('/debug/chromium', async (req, res) => {
     }
 });
 
+// Debug endpoint: captura HTML y screenshot de Facebook Ads Library
+app.get('/debug/facebook', async (req, res) => {
+    const keyword = req.query.keyword || 'bulevartienda.com';
+    
+    console.log('[DEBUG] Iniciando captura de diagnóstico...');
+    
+    const browser = await puppeteer.launch({
+        headless: chromium.headless,
+        args: [...chromium.args, '--disable-gpu', '--no-sandbox', '--disable-setuid-sandbox'],
+        defaultViewport: chromium.defaultViewport,
+        executablePath: await chromium.executablePath(),
+        ignoreHTTPSErrors: true,
+        timeout: 60000
+    });
+
+    const page = await browser.newPage();
+
+    try {
+        await page.setViewport({ width: 1920, height: 1080 });
+        await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+
+        const url = `https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=ALL&q=${encodeURIComponent(keyword)}&search_type=keyword_unordered&media_type=all`;
+        
+        await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
+        await new Promise(resolve => setTimeout(resolve, 15000));
+
+        // Cerrar cookies
+        try {
+            await page.click('button[data-cookiebanner="accept_button"]', { timeout: 3000 });
+        } catch (e) {}
+
+        // Capturar información
+        const debugInfo = await page.evaluate(() => {
+            const bodyText = document.body.innerText.substring(0, 5000);
+            const hasResultsEs = bodyText.includes('resultados');
+            const hasResultsEn = bodyText.includes('results');
+            const hasDetallesEs = bodyText.includes('Ver detalles del anuncio');
+            const hasDetallesEn = bodyText.includes('See ad details');
+            const hasBibliotecaEs = bodyText.includes('Identificador de la biblioteca');
+            const hasBibliotecaEn = bodyText.includes('Ad Library ID') || bodyText.includes('Library ID');
+            
+            return {
+                idioma: hasResultsEs ? 'español' : (hasResultsEn ? 'inglés' : 'desconocido'),
+                textoInicial: bodyText,
+                marcadores: {
+                    resultadosEs: hasResultsEs,
+                    resultadosEn: hasResultsEn,
+                    detallesEs: hasDetallesEs,
+                    detallesEn: hasDetallesEn,
+                    bibliotecaEs: hasBibliotecaEs,
+                    bibliotecaEn: hasBibliotecaEn
+                },
+                divsTotales: document.querySelectorAll('div').length,
+                url: window.location.href,
+                title: document.title
+            };
+        });
+
+        // Capturar screenshot (en base64 para ver en navegador)
+        const screenshot = await page.screenshot({ 
+            encoding: 'base64',
+            fullPage: false,
+            type: 'png'
+        });
+
+        await browser.close();
+
+        res.json({
+            status: 'ok',
+            keyword: keyword,
+            servidor: {
+                platform: process.platform,
+                nodeVersion: process.version
+            },
+            diagnostico: debugInfo,
+            screenshot: `data:image/png;base64,${screenshot}`
+        });
+
+    } catch (error) {
+        await browser.close();
+        res.status(500).json({
+            status: 'error',
+            error: error.message,
+            stack: error.stack
+        });
+    }
+});
+
 // Ruta principal - Servir HTML
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
@@ -158,9 +246,18 @@ async function scrapeFacebookAds(keyword, maxResults) {
     const page = await browser.newPage();
 
     try {
-        // Configurar viewport y user agent
+        // Configurar viewport y user agent realista
         await page.setViewport({ width: 1920, height: 1080 });
         await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+        
+        // Agregar headers adicionales para parecer un navegador real
+        await page.setExtraHTTPHeaders({
+            'Accept-Language': 'en-US,en;q=0.9,es;q=0.8',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+            'Accept-Encoding': 'gzip, deflate, br',
+            'Connection': 'keep-alive',
+            'Upgrade-Insecure-Requests': '1'
+        });
 
         // Construir URL
         const url = `https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=ALL&q=${encodeURIComponent(keyword)}&search_type=keyword_unordered&media_type=all`;
@@ -171,9 +268,10 @@ async function scrapeFacebookAds(keyword, maxResults) {
             timeout: 60000 
         });
 
-        // Esperar carga
+        // Esperar carga (más tiempo en servidores lentos)
         console.log('[ESPERANDO] Cargando contenido...');
-        await new Promise(resolve => setTimeout(resolve, 12000));
+        const waitTime = process.env.NODE_ENV === 'production' ? 20000 : 12000;
+        await new Promise(resolve => setTimeout(resolve, waitTime));
 
         // Cerrar banner de cookies si aparece
         try {
