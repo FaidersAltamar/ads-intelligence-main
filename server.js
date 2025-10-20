@@ -190,35 +190,14 @@ async function scrapeFacebookAds(keyword, maxResults) {
             await new Promise(resolve => setTimeout(resolve, 2000));
         }
 
-        // Debug: Ver qué está cargando
-        const debugInfo = await page.evaluate(() => {
+        // Obtener total reportado
+        const totalReportado = await page.evaluate(() => {
             const texto = document.body.innerText;
-            const match = texto.match(/(\d+)\s+resultados?/i);
-            const match2 = texto.match(/(\d+)\s+results?/i);
-            const totalReportado = match ? match[1] : (match2 ? match2[1] : '0');
-            
-            // Buscar diferentes variaciones de texto
-            const hasVerDetalles = texto.includes('Ver detalles') || texto.includes('See details');
-            const hasBiblioteca = texto.includes('biblioteca') || texto.includes('library');
-            const hasIdentificador = texto.includes('Identificador') || texto.includes('Ad ID') || texto.includes('Library ID');
-            
-            // Contar divs
-            const totalDivs = document.querySelectorAll('div').length;
-            
-            return {
-                totalReportado,
-                hasVerDetalles,
-                hasBiblioteca,
-                hasIdentificador,
-                totalDivs,
-                firstChars: texto.substring(0, 500)
-            };
+            const match = texto.match(/(\d+)\s+resultados/);
+            return match ? match[1] : '0';
         });
 
-        console.log(`[INFO] Facebook reporta ${debugInfo.totalReportado} anuncios`);
-        console.log(`[DEBUG] Ver detalles: ${debugInfo.hasVerDetalles}, Biblioteca: ${debugInfo.hasBiblioteca}, ID: ${debugInfo.hasIdentificador}`);
-        console.log(`[DEBUG] Total DIVs: ${debugInfo.totalDivs}`);
-        console.log(`[DEBUG] Primeros chars: ${debugInfo.firstChars}`);
+        console.log(`[INFO] Facebook reporta ${totalReportado} anuncios`);
         console.log('[EXTRACCION] Extrayendo anuncios...');
 
         // Extraer anuncios con JavaScript en el contexto de la página
@@ -232,14 +211,13 @@ async function scrapeFacebookAds(keyword, maxResults) {
             for (const div of allDivs) {
                 const texto = div.innerText || '';
                 
-                // Filtrar: buscar en español e inglés
-                const hasDetalles = texto.includes('Ver detalles') || texto.includes('See details') || texto.includes('Ad details');
-                const hasBiblioteca = texto.includes('Identificador de la biblioteca') || texto.includes('Ad library ID') || texto.includes('Library ID');
-                
-                if (hasDetalles && hasBiblioteca && texto.length > 100 && texto.length < 3000) {
+                // Filtrar: debe tener ID de biblioteca y botón "Ver detalles"
+                if (texto.includes('Ver detalles del anuncio') && 
+                    texto.includes('Identificador de la biblioteca') &&
+                    texto.length > 100 && texto.length < 2500) {
                     
-                    // Extraer ID único (español e inglés)
-                    const idMatch = texto.match(/(?:Identificador de la biblioteca|Ad library ID|Library ID)[:\s]+(\d{15,})/i);
+                    // Extraer ID único
+                    const idMatch = texto.match(/Identificador de la biblioteca[:\s]+(\d{15,})/);
                     if (!idMatch) continue;
                     
                     const id = idMatch[1];
