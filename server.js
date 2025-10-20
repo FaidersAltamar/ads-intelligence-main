@@ -171,9 +171,9 @@ async function scrapeFacebookAds(keyword, maxResults) {
             timeout: 60000 
         });
 
-        // Esperar carga
+        // Esperar carga (aumentado para Render.com)
         console.log('[ESPERANDO] Cargando contenido...');
-        await new Promise(resolve => setTimeout(resolve, 12000));
+        await new Promise(resolve => setTimeout(resolve, 20000)); // 20 segundos
 
         // Cerrar banner de cookies si aparece
         try {
@@ -190,14 +190,29 @@ async function scrapeFacebookAds(keyword, maxResults) {
             await new Promise(resolve => setTimeout(resolve, 2000));
         }
 
-        // Obtener total reportado
-        const totalReportado = await page.evaluate(() => {
+        // Obtener total reportado y debug info
+        const debugInfo = await page.evaluate(() => {
             const texto = document.body.innerText;
             const match = texto.match(/(\d+)\s+resultados/);
-            return match ? match[1] : '0';
+            
+            // Debug: ver qué divs hay
+            const allDivs = document.querySelectorAll('div');
+            const divsWithBiblioteca = Array.from(allDivs).filter(div => 
+                div.innerText && div.innerText.includes('Identificador de la biblioteca')
+            );
+            
+            return {
+                totalReportado: match ? match[1] : '0',
+                totalDivs: allDivs.length,
+                divsConBiblioteca: divsWithBiblioteca.length,
+                hasVerDetalles: texto.includes('Ver detalles del anuncio'),
+                bodyLength: texto.length
+            };
         });
 
-        console.log(`[INFO] Facebook reporta ${totalReportado} anuncios`);
+        console.log(`[INFO] Facebook reporta ${debugInfo.totalReportado} anuncios`);
+        console.log(`[DEBUG] Total DIVs: ${debugInfo.totalDivs}, DIVs con biblioteca: ${debugInfo.divsConBiblioteca}`);
+        console.log(`[DEBUG] Tiene "Ver detalles": ${debugInfo.hasVerDetalles}, Texto length: ${debugInfo.bodyLength}`);
         console.log('[EXTRACCION] Extrayendo anuncios...');
 
         // Extraer anuncios con JavaScript en el contexto de la página
