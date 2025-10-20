@@ -281,11 +281,62 @@ async function scrapeFacebookAds(keyword, maxResults) {
             // No hay banner
         }
 
-        // Hacer scroll para cargar más anuncios
-        console.log('[SCROLL] Cargando más anuncios...');
-        for (let i = 0; i < 6; i++) {
-            await page.evaluate(() => window.scrollBy(0, 700));
-            await new Promise(resolve => setTimeout(resolve, 2000));
+        // Scroll inteligente para cargar más anuncios según maxResults
+        console.log(`[SCROLL] Cargando anuncios hasta alcanzar ${maxResults} resultados...`);
+        
+        // Calcular scrolls necesarios (aproximadamente 2-3 anuncios por scroll)
+        const scrollsNecesarios = Math.min(Math.ceil(maxResults / 2.5), 30); // Máximo 30 scrolls
+        let anunciosPrevios = 0;
+        let scrollsSinCambio = 0;
+        
+        for (let i = 0; i < scrollsNecesarios; i++) {
+            // Hacer scroll grande
+            await page.evaluate(() => {
+                window.scrollBy(0, 1200);
+            });
+            
+            // Esperar a que cargue contenido nuevo
+            await new Promise(resolve => setTimeout(resolve, 2500));
+            
+            // Contar anuncios actuales cada 3 scrolls para verificar progreso
+            if (i % 3 === 0) {
+                const anunciosActuales = await page.evaluate(() => {
+                    const allDivs = Array.from(document.querySelectorAll('div'));
+                    let count = 0;
+                    for (const div of allDivs) {
+                        const texto = div.innerText || '';
+                        const hasDetalles = texto.includes('Ver detalles del anuncio') || texto.includes('See ad details');
+                        const hasBiblioteca = texto.includes('Identificador de la biblioteca') || 
+                                              texto.includes('Ad Library ID') || 
+                                              texto.includes('Library ID');
+                        if (hasDetalles && hasBiblioteca && texto.length > 100 && texto.length < 2500) {
+                            count++;
+                        }
+                    }
+                    return count;
+                });
+                
+                console.log(`[SCROLL ${i+1}/${scrollsNecesarios}] Anuncios detectados: ${anunciosActuales}`);
+                
+                // Si ya tenemos suficientes anuncios, detener scroll
+                if (anunciosActuales >= maxResults) {
+                    console.log(`[OK] Se alcanzó el objetivo de ${maxResults} anuncios`);
+                    break;
+                }
+                
+                // Si no se cargan más anuncios después de varios scrolls, detener
+                if (anunciosActuales === anunciosPrevios) {
+                    scrollsSinCambio++;
+                    if (scrollsSinCambio >= 3) {
+                        console.log('[INFO] No se detectan más anuncios nuevos, finalizando scroll');
+                        break;
+                    }
+                } else {
+                    scrollsSinCambio = 0;
+                }
+                
+                anunciosPrevios = anunciosActuales;
+            }
         }
 
         // Obtener total reportado (español e inglés)
