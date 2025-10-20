@@ -9,19 +9,64 @@ const cors = require('cors');
 const path = require('path');
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 
-// Middleware
-app.use(cors());
+// Middleware - CORS configurado para aceptar peticiones desde cualquier origen
+app.use(cors({
+    origin: '*', // Permite peticiones desde cualquier dominio
+    methods: ['GET', 'POST', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization']
+}));
 app.use(express.json());
 app.use(express.static('public'));
+
+// Health check endpoint
+app.get('/health', (req, res) => {
+    res.json({ 
+        status: 'ok', 
+        timestamp: new Date().toISOString(),
+        service: 'Facebook Ads Scraper API' 
+    });
+});
 
 // Ruta principal - Servir HTML
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// API endpoint para scraping
+// API endpoint GET (para consumir desde URL)
+app.get('/api/scrape', async (req, res) => {
+    const { keyword, maxResults = 30 } = req.query;
+
+    if (!keyword) {
+        return res.status(400).json({ 
+            error: 'Se requiere una palabra clave',
+            usage: 'GET /api/scrape?keyword=nike.com&maxResults=30'
+        });
+    }
+
+    console.log(`[SCRAPING GET] Palabra clave: ${keyword}, Max: ${maxResults}`);
+
+    try {
+        const anuncios = await scrapeFacebookAds(keyword, parseInt(maxResults));
+        
+        res.json({
+            success: true,
+            keyword: keyword,
+            total: anuncios.length,
+            fecha: new Date().toISOString(),
+            anuncios: anuncios
+        });
+    } catch (error) {
+        console.error('[ERROR]', error);
+        res.status(500).json({ 
+            success: false,
+            error: error.message 
+        });
+    }
+});
+
+// API endpoint POST (para consumir desde aplicaciones)
 app.post('/api/scrape', async (req, res) => {
     const { keyword, maxResults = 30 } = req.body;
 
@@ -63,8 +108,15 @@ async function scrapeFacebookAds(keyword, maxResults) {
         args: [
             '--no-sandbox',
             '--disable-setuid-sandbox',
+            '--disable-dev-shm-usage',
+            '--disable-accelerated-2d-canvas',
+            '--no-first-run',
+            '--no-zygote',
+            '--single-process',
+            '--disable-gpu',
             '--disable-blink-features=AutomationControlled'
-        ]
+        ],
+        executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || puppeteer.executablePath()
     });
 
     const page = await browser.newPage();

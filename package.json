@@ -4,9 +4,14 @@
   "description": "Scraper de anuncios de Facebook Ads Library con Puppeteer",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "dev": "node server.js"
   },
-  "keywords": ["puppeteer", "facebook", "ads", "scraper"],
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  },
+  "keywords": ["puppeteer", "facebook", "ads", "scraper", "api"],
   "author": "",
   "license": "MIT",
   "dependencies": {
