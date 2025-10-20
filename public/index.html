@@ -1,0 +1,614 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Facebook Ads Library Scraper</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 40px;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .card {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            margin-bottom: 20px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #333;
+        }
+
+        input[type="text"],
+        input[type="number"] {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+
+        input[type="text"]:focus,
+        input[type="number"]:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            font-size: 16px;
+            font-weight: 600;
+            border-radius: 8px;
+            cursor: pointer;
+            width: 100%;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .loading.active {
+            display: block;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .results {
+            display: none;
+        }
+
+        .results.active {
+            display: block;
+        }
+
+        .result-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+
+        .result-header h2 {
+            margin-bottom: 10px;
+        }
+
+        .ad-card {
+            background: white;
+            border: 1px solid #dcdcdc;
+            border-radius: 8px;
+            padding: 0;
+            margin-bottom: 20px;
+            transition: box-shadow 0.2s;
+            overflow: hidden;
+        }
+
+        .ad-card:hover {
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        }
+
+        .ad-header {
+            padding: 12px 16px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .ad-logo {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            flex-shrink: 0;
+        }
+        
+        .ad-logo img {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+
+        .ad-header-info {
+            flex: 1;
+        }
+
+        .ad-title {
+            font-size: 15px;
+            font-weight: 600;
+            color: #050505;
+            margin-bottom: 2px;
+        }
+
+        .ad-status {
+            font-size: 13px;
+            color: #65676b;
+        }
+
+        .ad-number {
+            background: #e7f3ff;
+            color: #1877f2;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .ad-image {
+            width: 100%;
+            height: auto;
+            max-height: 500px;
+            object-fit: cover;
+            background: #f0f2f5;
+        }
+
+        .ad-video {
+            width: 100%;
+            height: auto;
+            max-height: 500px;
+            background: #000;
+        }
+
+        .ad-images-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 4px;
+            background: #f0f2f5;
+        }
+
+        .ad-images-grid img {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+        }
+
+        .ad-cta {
+            background: #f0f2f5;
+            padding: 12px 16px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            text-decoration: none;
+            color: inherit;
+            transition: background 0.2s;
+        }
+
+        .ad-cta:hover {
+            background: #e4e6eb;
+        }
+
+        .ad-cta-info {
+            flex: 1;
+        }
+
+        .ad-cta-domain {
+            font-size: 12px;
+            color: #65676b;
+            text-transform: uppercase;
+            margin-bottom: 4px;
+        }
+
+        .ad-cta-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #050505;
+            margin-bottom: 2px;
+        }
+
+        .ad-cta-subtitle {
+            font-size: 13px;
+            color: #65676b;
+        }
+
+        .ad-cta-button {
+            background: #e7f3ff;
+            color: #1877f2;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        .ad-content {
+            padding: 16px;
+        }
+
+        .ad-text {
+            color: #050505;
+            line-height: 1.5;
+            font-size: 14px;
+            margin-bottom: 12px;
+            white-space: pre-wrap;
+        }
+
+        .ad-meta {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            padding: 12px 16px;
+            background: #f7f8fa;
+            border-top: 1px solid #e4e6eb;
+            font-size: 13px;
+            color: #65676b;
+        }
+
+        .ad-meta-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .ad-meta-item strong {
+            color: #050505;
+            font-weight: 600;
+        }
+
+        .ad-link {
+            color: #1877f2;
+            text-decoration: none;
+            font-size: 13px;
+            padding: 0 16px 12px;
+            display: inline-block;
+        }
+
+        .ad-link:hover {
+            text-decoration: underline;
+        }
+
+        .no-image-placeholder {
+            width: 100%;
+            height: 300px;
+            background: linear-gradient(135deg, #f0f2f5 0%, #e4e6eb 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #65676b;
+            font-size: 16px;
+        }
+
+        .error {
+            background: #fee;
+            border: 1px solid #fcc;
+            color: #c33;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+        }
+
+        .success-badge {
+            background: #4caf50;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-size: 14px;
+            display: inline-block;
+        }
+
+        .btn-download {
+            background: #4caf50;
+            margin-top: 15px;
+        }
+
+        .btn-download:hover {
+            box-shadow: 0 5px 15px rgba(76, 175, 80, 0.4);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔍 Facebook Ads Library Scraper</h1>
+            <p>Extrae anuncios de Facebook usando Puppeteer (Headless)</p>
+        </div>
+
+        <div class="card">
+            <form id="scrapeForm">
+                <div class="form-group">
+                    <label for="keyword">Palabra clave o dominio:</label>
+                    <input 
+                        type="text" 
+                        id="keyword" 
+                        placeholder="Ej: nike.com, adidas, coca-cola..."
+                        required
+                    >
+                </div>
+
+                <div class="form-group">
+                    <label for="maxResults">Cantidad de anuncios (máx 100):</label>
+                    <input 
+                        type="number" 
+                        id="maxResults" 
+                        value="30" 
+                        min="1" 
+                        max="100"
+                        required
+                    >
+                </div>
+
+                <button type="submit" class="btn" id="submitBtn">
+                    Buscar Anuncios
+                </button>
+            </form>
+        </div>
+
+        <div class="loading" id="loading">
+            <div class="card">
+                <div class="spinner"></div>
+                <p><strong>Extrayendo anuncios...</strong></p>
+                <p>Esto puede tomar 30-60 segundos</p>
+            </div>
+        </div>
+
+        <div class="results" id="results">
+            <!-- Resultados se mostrarán aquí -->
+        </div>
+    </div>
+
+    <script>
+        const form = document.getElementById('scrapeForm');
+        const loading = document.getElementById('loading');
+        const results = document.getElementById('results');
+        const submitBtn = document.getElementById('submitBtn');
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const keyword = document.getElementById('keyword').value;
+            const maxResults = parseInt(document.getElementById('maxResults').value);
+
+            // Mostrar loading
+            loading.classList.add('active');
+            results.classList.remove('active');
+            submitBtn.disabled = true;
+
+            try {
+                const response = await fetch('/api/scrape', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ keyword, maxResults })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    mostrarResultados(data);
+                } else {
+                    mostrarError(data.error);
+                }
+            } catch (error) {
+                mostrarError('Error de conexión: ' + error.message);
+            } finally {
+                loading.classList.remove('active');
+                submitBtn.disabled = false;
+            }
+        });
+
+        function mostrarResultados(data) {
+            const anuncios = data.anuncios;
+
+            let html = `
+                <div class="card">
+                    <div class="result-header">
+                        <h2>✅ Resultados</h2>
+                        <p><span class="success-badge">${anuncios.length} anuncios encontrados</span></p>
+                        <p>Palabra clave: <strong>${data.keyword}</strong></p>
+                        <p>Fecha: ${new Date(data.fecha).toLocaleString('es-ES')}</p>
+                    </div>
+
+                    <button class="btn btn-download" onclick="descargarJSON()">
+                        📥 Descargar JSON
+                    </button>
+
+                    <div style="margin-top: 30px;">
+            `;
+
+            anuncios.forEach(ad => {
+                // Obtener inicial del nombre de página
+                const inicial = ad.pagina ? ad.pagina.charAt(0).toUpperCase() : 'A';
+                
+                // Decidir si mostrar logo real o inicial
+                const logoHTML = ad.logo_url 
+                    ? `<img src="${ad.logo_url}" alt="${ad.pagina}" class="ad-logo" style="object-fit: cover;">`
+                    : `<div class="ad-logo">${inicial}</div>`;
+                
+                // Generar HTML de media (video o imágenes)
+                let mediaHTML = '';
+                
+                // Prioridad 1: Video
+                if (ad.video && ad.video.poster) {
+                    mediaHTML = `
+                        <video class="ad-video" controls poster="${ad.video.poster}">
+                            ${ad.video.src ? `<source src="${ad.video.src}" type="video/mp4">` : ''}
+                            Tu navegador no soporta videos.
+                        </video>
+                    `;
+                }
+                // Prioridad 2: Imágenes
+                else if (ad.imagenes_urls && ad.imagenes_urls.length > 0) {
+                    if (ad.imagenes_urls.length === 1) {
+                        mediaHTML = `<img src="${ad.imagenes_urls[0]}" alt="Anuncio" class="ad-image" onerror="this.src='https://via.placeholder.com/600x400?text=Imagen+no+disponible'">`;
+                    } else {
+                        mediaHTML = '<div class="ad-images-grid">';
+                        ad.imagenes_urls.forEach(url => {
+                            mediaHTML += `<img src="${url}" alt="Anuncio" onerror="this.style.display='none'">`;
+                        });
+                        mediaHTML += '</div>';
+                    }
+                } 
+                // Fallback: Sin media
+                else {
+                    mediaHTML = '<div class="no-image-placeholder">📷 Sin contenido multimedia</div>';
+                }
+                
+                // Generar HTML del CTA (Call to Action)
+                let ctaHTML = '';
+                if (ad.cta && ad.cta.domain) {
+                    const ctaUrl = ad.cta.url || `https://www.facebook.com/ads/library/?id=${ad.id_biblioteca}`;
+                    ctaHTML = `
+                        <a href="${ctaUrl}" target="_blank" rel="noopener noreferrer" class="ad-cta">
+                            <div class="ad-cta-info">
+                                <div class="ad-cta-domain">${ad.cta.domain}</div>
+                                <div class="ad-cta-title">${ad.cta.title || ''}</div>
+                                <div class="ad-cta-subtitle">${ad.cta.subtitle || ''}</div>
+                            </div>
+                            ${ad.cta.button ? `<div class="ad-cta-button">${ad.cta.button}</div>` : ''}
+                        </a>
+                    `;
+                }
+                
+                html += `
+                    <div class="ad-card">
+                        <div class="ad-header">
+                            ${logoHTML}
+                            <div class="ad-header-info">
+                                <div class="ad-title">${ad.pagina}</div>
+                                <div class="ad-status">✅ Activo · Publicidad</div>
+                            </div>
+                            <span class="ad-number">#${ad.numero}</span>
+                        </div>
+                        
+                        <div class="ad-content">
+                            <div class="ad-text">${ad.texto || 'Sin texto disponible'}</div>
+                        </div>
+                        
+                        ${mediaHTML}
+                        
+                        ${ctaHTML}
+                        
+                        <div class="ad-meta">
+                            <div class="ad-meta-item">
+                                <strong>ID:</strong> ${ad.id_biblioteca}
+                            </div>
+                            <div class="ad-meta-item">
+                                <strong>📅</strong> ${ad.fecha_inicio}
+                            </div>
+                            <div class="ad-meta-item">
+                                <strong>${ad.video ? '🎥 Video' : '🖼️ ' + ad.imagenes + ' imagen(es)'}</strong>
+                            </div>
+                        </div>
+                        
+                        <a href="https://www.facebook.com/ads/library/?id=${ad.id_biblioteca}" target="_blank" class="ad-link">
+                            Ver detalles completos en Facebook →
+                        </a>
+                    </div>
+                `;
+            });
+
+            html += `
+                    </div>
+                </div>
+            `;
+
+            results.innerHTML = html;
+            results.classList.add('active');
+
+            // Guardar datos para descarga
+            window.scrapedData = data;
+        }
+
+        function mostrarError(mensaje) {
+            results.innerHTML = `
+                <div class="card">
+                    <div class="error">
+                        <strong>❌ Error:</strong> ${mensaje}
+                    </div>
+                </div>
+            `;
+            results.classList.add('active');
+        }
+
+        function descargarJSON() {
+            const dataStr = JSON.stringify(window.scrapedData, null, 2);
+            const dataBlob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(dataBlob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `facebook_ads_${window.scrapedData.keyword}_${Date.now()}.json`;
+            link.click();
+            URL.revokeObjectURL(url);
+        }
+    </script>
+</body>
+</html>
+
+
